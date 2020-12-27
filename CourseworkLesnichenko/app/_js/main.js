@@ -1,4 +1,3 @@
-// Lesnichemko, laboratory work №3
 const objectID = "helicoid";
 // global variables
 let renderer;
@@ -29,40 +28,103 @@ function setupEnvironment() {
     addDirectionalLight()
 }
 
-function createSurfaceOfCassini() {
-    let r;
-    let a; 
-    let c;
-    let u;
+const Figure = {
+    c: 10,     // radius
+    a: 1,
+    b: 10 / Math.PI,
+    O: Math.PI / 4,
 
-    let x = r * Math.cos(u);
-    let y = r * Math.cos(u);
+    transformUV(u1, v1) {
+        const u = u1 * Math.PI * 2;
+        const v = v1 * 8 * Math.PI;
+
+        return {u, v};
+    },
+
+    x0(v) {
+        return this.c * Math.pow(Math.cos(v), 3)
+    },
+    y0(v) {
+        return this.c * Math.pow(Math.sin(v), 3)
+    },
+    f(u, v) {
+        let x = (this.a + this.x0(v) * Math.cos(this.O) + this.y0(v) * Math.sin(this.O)) * Math.cos(u);
+        let y = (this.a + this.x0(v) * Math.cos(this.O) + this.y0(v) * Math.sin(this.O)) * Math.sin(u);
+        let z = this.b * u - this.x0(v) * Math.sin(this.O) + this.y0(v) * Math.cos(this.O);
+
+        return {x, y, z}
+    },
+
+    dx0(v) {
+        return -3 * this.c * Math.sin(v) * Math.pow(Math.cos(v), 2)
+    },
+    dy0(v) {
+        return 3 * this.c * Math.cos(v) * Math.pow(Math.sin(v), 2)
+    },
+    DfDu(u, v) {
+        const dxdu = -1 * (this.a + this.x0(v) * Math.cos(this.O) + this.y0(v) * Math.sin(this.O)) * Math.sin(u);
+        const dydu = (this.a + this.x0(v) * Math.cos(this.O) + this.y0(v) * Math.sin(this.O)) * Math.cos(u);
+        const dzdu = this.b;
+
+        return {dxdu, dydu, dzdu};
+    },
+    DfDv(u, v) {
+        const dxdv = (this.dx0(v) * Math.cos(this.O) + this.dy0(v) * Math.sin(this.O)) * Math.cos(u);
+        const dydv = (this.dx0(v) * Math.cos(this.O) + this.dy0(v) * Math.sin(this.O)) * Math.sin(u);
+        const dzdv = this.dx0(v) * Math.sin(this.O) + this.dy0(v) * Math.cos(this.O);
+
+        return {dxdv, dydv, dzdv};
+    }
+};
+
+const vectorAttrs = {
+    colorNormal: 0xFFFFFF,
+    colorTangU: 0xFF0000,
+    colorTangV: 0x0000FF,
+    normal: null,
+    vU: null,
+    vV: null,
+    helperN: null,
+    helperU: null,
+    helperV: null,
+    u: 0,
+    set setU(value) {
+        this.u = value;
+    },
+    v: 0,
+    set setV(value) {
+        if (value > Math.PI / 4) {
+            this.v = Math.PI / 4;
+        } else if (value < 0) {
+            this.v = 0;
+        } else {
+            this.v = value;
+        }
+    },
+
+    p: null,
+    start: null,
+    step: 0.01,
+    vSize: 10,
+    reset: function () {
+        killVectors();
+        this.normal = null;
+        this.vU = null;
+        this.vV = null;
+        this.helperN = null;
+        this.helperU = null;
+        this.helperV = null;
+        this.p = null;
+        this.start = null;
+        doCourseWork();
+    },
 };
 
 function createAstroidalHelicoid() {
-    let c = 10;     // radius
-    let a = 1;
-    let b = c / Math.PI;
-    let O = Math.PI / 4;
-
-    function x0(v) {
-        return c * Math.pow(Math.cos(v), 3)
-    }
-
-    function y0(v) {
-        return c * Math.pow(Math.sin(v), 3)
-    }
-
-    let AstroidalHelicoid = function (u, v, target) {
-        var u = u * Math.PI * 2;
-        var v = v * 8 * Math.PI;
-
-        let x = (a + x0(v) * Math.cos(O) + y0(v) * Math.sin(O)) * Math.cos(u);
-        let y = (a + x0(v) * Math.cos(O) + y0(v) * Math.sin(O)) * Math.sin(u);
-        let z = b * u - x0(v) * Math.sin(O) + y0(v) * Math.cos(O);
-
+    let AstroidalHelicoid = function (u1, v1, target) {
+        const {u, v} = Figure.transformUV(u1, v1);
+        const {x, y, z} = Figure.f(u, v);
         target.set(x, y, z);
-        // return new THREE.Vector3(x, y, z);
     };
 
     // create a figure
@@ -73,21 +135,20 @@ function createAstroidalHelicoid() {
         // color: 0xcc3333a,
         side: THREE.DoubleSide,
         shading: THREE.FlatShading,
-        wireframe: false,
-        map: texture
+        wireframe: false/*,
+        map: texture*/
     });
 
     let mesh = new THREE.Mesh(geom, mat);
     mesh.name = objectID;
-    let scale = 3;
-    mesh.scale.set(scale, scale, scale);
-    mesh.position.z = -45;
+    // let scale = 1;
+    // mesh.scale.set(scale, scale, scale);
+    // mesh.position.z = -45;
     return mesh
 }
 
 function addPointLight() {
     // create a sphere orientir
-    // var sphere = new THREE.SphereGeometry(3, 20, 20);
     var sphere = new THREE.SphereGeometry(0.001, 20, 20);
     var spherMat = new THREE.MeshLambertMaterial({color: 0x5555ff});
     var sphereMesh = new THREE.Mesh(sphere, spherMat);
@@ -101,7 +162,7 @@ function addPointLight() {
     pivotPoint.name = 'pointLight';
     sphereMesh.add(pivotPoint);
 
-    const light = new THREE.PointLight(0xffffff, 7, 500, 2);
+    const light = new THREE.PointLight(0xffffff, 2, 300, 2);
     light.name = 'light';
     light.position.set(0, -lightRadius, lightRadius);
     scene.add(light);
@@ -160,15 +221,103 @@ function makeMipmap(s, color) {
     return context.getImageData(0, 0, s, s)
 }
 
+function visualizePoint(x, y, z) {
+    const geometry = new THREE.SphereGeometry(0, 0, 0);
+    const material = new THREE.MeshBasicMaterial({color: 0x000000});
+    let scale = 0.4;
+    vectorAttrs.p = new THREE.Mesh(geometry, material);
+    vectorAttrs.p.scale.set(scale, scale, scale);
+    vectorAttrs.p.position.set(x, y, z);
+    scene.add(vectorAttrs.p);
+}
+
+function killVectors() {
+    scene.remove(vectorAttrs.normal);
+    scene.remove(vectorAttrs.vU);
+    scene.remove(vectorAttrs.vV);
+    scene.remove(vectorAttrs.helperN);
+    scene.remove(vectorAttrs.helperU);
+    scene.remove(vectorAttrs.helperV);
+    scene.remove(vectorAttrs.p);
+    scene.remove(vectorAttrs.start);
+}
+
+function makeTangU(u, v, x, y, z) {
+    let {dxdu, dydu, dzdu} = Figure.DfDu(u, v);
+    let tu = new THREE.Vector3(dxdu, dydu, dzdu);
+
+    tu.normalize();
+    vectorAttrs.vU = tu;
+    vectorAttrs.start = new THREE.Vector3(x, y, z);
+    vectorAttrs.helperU = new THREE.ArrowHelper(
+        vectorAttrs.vU,
+        vectorAttrs.start,
+        vectorAttrs.vSize,
+        vectorAttrs.colorTangU
+    );
+    scene.add(vectorAttrs.helperU);
+}
+
+function makeTangV(u, v, x, y, z) {
+    let {dxdv, dydv, dzdv} = Figure.DfDv(u, v);
+    let tv = new THREE.Vector3(dxdv, dydv, dzdv);
+
+    tv.normalize();
+    vectorAttrs.vV = tv;
+    vectorAttrs.start = new THREE.Vector3(x, y, z);
+
+    vectorAttrs.helperV = new THREE.ArrowHelper(
+        vectorAttrs.vV,
+        vectorAttrs.start,
+        vectorAttrs.vSize,
+        vectorAttrs.colorTangV
+    );
+    scene.add(vectorAttrs.helperV);
+}
+
+function makeNormal(x, y, z) {
+    vectorAttrs.normal = new THREE.Vector3();
+    vectorAttrs.normal.crossVectors(vectorAttrs.vU, vectorAttrs.vV);
+    vectorAttrs.normal.normalize();
+    vectorAttrs.start = new THREE.Vector3(x, y, z);
+
+    vectorAttrs.helperN = new THREE.ArrowHelper(
+        vectorAttrs.normal,
+        vectorAttrs.start,
+        vectorAttrs.vSize,
+        vectorAttrs.colorNormal
+    );
+
+    scene.add(vectorAttrs.helperN);
+}
+
+function makeVectors(u, v, x, y, z) {
+    makeTangU(u, v, x, y, z);
+    makeTangV(u, v, x, y, z);
+    makeNormal(x, y, z);
+}
+
+function doCourseWork() {
+    const [u1, v1] = [vectorAttrs.u, vectorAttrs.v];
+    console.log(u1 + ", " + v1);
+    const {u, v} = Figure.transformUV(u1, v1);
+    console.log(u + ", " + v);
+
+    const {x, y, z} = Figure.f(u, v);
+
+    visualizePoint(x, y, z);
+    makeVectors(u, v, x, y, z);
+}
+
 function init() {
     setupEnvironment();
     let mesh = createAstroidalHelicoid();
     scene.add(mesh);
 
     // position and point the camera to the center of the scene
-    camera.position.x = 0;
-    camera.position.y = -200;
-    camera.position.z = 100;
+    camera.position.x = 200;
+    camera.position.y = 0;
+    camera.position.z = 0;
     camera.lookAt(new THREE.Vector3(0, 0, 0));
 
 
@@ -177,6 +326,8 @@ function init() {
 
     addControls();
     setupKeyControls();
+
+    doCourseWork();
 
     // call the render function
     render();
@@ -239,6 +390,28 @@ function setupKeyControls() {
             case 40:
                 // down
                 pivotPoint.rotation.x += rotationStep;
+                break;
+
+            // WASD
+            case 87:
+                // W
+                vectorAttrs.setV = vectorAttrs.v + vectorAttrs.step;
+                vectorAttrs.reset();
+                break;
+            case 65:
+                // A
+                vectorAttrs.setU = vectorAttrs.u - vectorAttrs.step;
+                vectorAttrs.reset();
+                break;
+            case 83:
+                // S
+                vectorAttrs.setV = vectorAttrs.v - vectorAttrs.step;
+                vectorAttrs.reset();
+                break;
+            case 68:
+                // D
+                vectorAttrs.setU = vectorAttrs.u + vectorAttrs.step;
+                vectorAttrs.reset();
                 break;
         }
     };
